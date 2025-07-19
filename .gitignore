@@ -1,0 +1,9 @@
+node_modules/
+coverage/
+dist/
+docker/
+.serverless/
+.DS_Store
+.env
+
+docker-compose.yml

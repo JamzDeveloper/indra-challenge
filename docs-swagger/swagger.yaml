@@ -1,0 +1,222 @@
+openapi: 3.0.1
+info:
+  title: API de Agendamiento de Citas Médicas
+  description: API Serverless para gestionar citas médicas para asegurados en Perú y Chile.
+  version: 1.0.0
+servers:
+  - url: https://r7n3ry156j.execute-api.us-east-1.amazonaws.com/dev
+
+paths:
+  /appointments:
+    post:
+      summary: Crear una cita médica
+      description: Permite crear una nueva cita médica para un asegurado.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAppointment'
+            example:
+              insuredId: "12345"
+              scheduleId: 1
+              countryISO: "PE"
+              email: "paciente@correo.com"
+      responses:
+        '200':
+          description: Cita creada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResponse'
+              example:
+                appointmentId: "apt-001"
+                insuredId: "12345"
+                scheduleId: 1
+                countryISO: "PE"
+                status: "CREATED"
+        '400':
+          description: Error de validación
+        '500':
+          description: Error inesperado del servidor
+
+  /appointments/{insuredId}:
+    get:
+      summary: Obtener citas por asegurado
+      description: Devuelve todas las citas médicas asociadas a un asegurado específico.
+      parameters:
+        - name: insuredId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^\d{5}$'
+          example: "12345"
+      responses:
+        '200':
+          description: Lista de citas del asegurado
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AppointmentResponse'
+              example:
+                - appointmentId: "apt-001"
+                  insuredId: "12345"
+                  scheduleId: 1
+                  countryISO: "PE"
+                  status: "CREATED"
+                - appointmentId: "apt-002"
+                  insuredId: "12345"
+                  scheduleId: 2
+                  countryISO: "PE"
+                  status: "CANCELLED"
+        '400':
+          description: ID inválido
+        '500':
+          description: Error inesperado
+
+  /schedule:
+    post:
+      summary: Crear un horario disponible
+      description: Registra un nuevo horario de atención para los médicos en los centros disponibles.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSchedule'
+            example:
+              scheduleId: 1
+              centerId: 101
+              specialtyId: 202
+              medicId: 303
+              date: "2025-07-20T10:00:00Z"
+      responses:
+        '200':
+          description: Horario creado exitosamente
+        '400':
+          description: Datos inválidos
+        '500':
+          description: Error inesperado
+
+    get:
+      summary: Listar horarios disponibles
+      description: Devuelve todos los horarios de atención registrados.
+      responses:
+        '200':
+          description: Lista de horarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScheduleResponse'
+              example:
+                - scheduleId: 1
+                  centerId: 101
+                  specialtyId: 202
+                  medicId: 303
+                  date: "2025-07-20T10:00:00Z"
+                - scheduleId: 2
+                  centerId: 102
+                  specialtyId: 203
+                  medicId: 304
+                  date: "2025-07-21T09:00:00Z"
+        '500':
+          description: Error inesperado
+
+components:
+  schemas:
+    CreateAppointment:
+      type: object
+      required:
+        - insuredId
+        - scheduleId
+        - countryISO
+      properties:
+        insuredId:
+          type: string
+          pattern: '^\d{5}$'
+          example: "12345"
+        scheduleId:
+          type: integer
+          example: 1
+        countryISO:
+          type: string
+          enum: [PE, CL]
+          example: "PE"
+        email:
+          type: string
+          format: email
+          nullable: true
+          example: "paciente@correo.com"
+        description:
+          type: string
+          nullable: true
+          example: "Dolor de cabeza"
+    CreateSchedule:
+      type: object
+      required:
+        - scheduleId
+        - centerId
+        - specialtyId
+        - medicId
+        - date
+      properties:
+        scheduleId:
+          type: integer
+          example: 1
+        centerId:
+          type: integer
+          example: 101
+        specialtyId:
+          type: integer
+          example: 202
+        medicId:
+          type: integer
+          example: 303
+        date:
+          type: string
+          format: date-time
+          example: "2025-07-20T10:00:00Z"
+
+    AppointmentResponse:
+      type: object
+      properties:
+        appointmentId:
+          type: string
+          example: "apt-001"
+        insuredId:
+          type: string
+          example: "12345"
+        scheduleId:
+          type: integer
+          example: 1
+        countryISO:
+          type: string
+          example: "PE"
+        status:
+          type: string
+          example: "CREATED"
+
+    ScheduleResponse:
+      type: object
+      properties:
+        scheduleId:
+          type: integer
+          example: 1
+        centerId:
+          type: integer
+          example: 101
+        specialtyId:
+          type: integer
+          example: 202
+        medicId:
+          type: integer
+          example: 303
+        date:
+          type: string
+          format: date-time
+          example: "2025-07-20T10:00:00Z"

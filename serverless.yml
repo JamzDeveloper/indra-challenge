@@ -1,0 +1,195 @@
+
+service: seguros-indra
+frameworkVersion: '4'
+
+useDotenv: true
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: us-east-1
+  stage: dev
+  environment:
+    DYNAMO_TABLE_NAME: ${env:DYNAMO_TABLE_NAME}
+    SNS_TOPIC_PE: arn:aws:sns:${self:provider.region}:${aws:accountId}:appointments-pe-topic-${sls:stage}
+    SNS_TOPIC_CL: arn:aws:sns:${self:provider.region}:${aws:accountId}:appointments-cl-topic-${sls:stage}
+    RDS_PE_HOST: ${env:RDS_PE_HOST}
+    RDS_PE_PORT: ${env:RDS_PE_PORT}
+    RDS_PE_USER: ${env:RDS_PE_USER}
+    RDS_PE_PASSWORD: ${env:RDS_PE_PASSWORD}
+    RDS_PE_DB: ${env:RDS_PE_DB}
+    RDS_CL_HOST: ${env:RDS_CL_HOST} 
+    RDS_CL_PORT: ${env:RDS_CL_PORT}
+    RDS_CL_USER: ${env:RDS_CL_USER}
+    RDS_CL_PASSWORD: ${env:RDS_CL_PASSWORD}
+    RDS_CL_DB: ${env:RDS_CL_DB}
+    EVENT_BRIDGE_BUS: ${env:EVENT_BRIDGE_BUS}
+    EVENT_BRIDGE_DETAIL_TYPE: ${env:EVENT_BRIDGE_DETAIL_TYPE}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:PutItem
+        - dynamodb:GetItem
+        - dynamodb:Query
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+        - dynamodb:Scan 
+      Resource:
+        - Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/Appointments
+    - Effect: Allow
+      Action:
+        - sns:Publish
+  
+      Resource:
+        - Fn::Sub: arn:aws:sns:${AWS::Region}:${AWS::AccountId}:appointments-pe-topic-${sls:stage}
+        - Fn::Sub: arn:aws:sns:${AWS::Region}:${AWS::AccountId}:appointments-cl-topic-${sls:stage}
+    - Effect: Allow
+      Action:
+        - events:PutEvents
+      Resource: 
+        - Fn::Sub: arn:aws:events:${AWS::Region}:${AWS::AccountId}:event-bus/appointments-bus
+
+
+package:
+  patterns:
+    - dist/**
+    - node_modules/**
+    - '!node_modules/.pnpm/**'
+    - '!**/*.test.ts'
+    - '!src/**'
+    - '!test/**'
+    - '!tests/**'
+    - '!docs/**'
+    - '!*.md'
+    - '!*.log'
+    - '!pnpm-lock.yaml'
+    - '!tsconfig.json'
+
+
+custom:
+  esbuild:
+    bundle: true
+    minify: false
+    external:
+      - mysql2
+      - lru-cache  
+
+functions:
+  appointment:
+    handler: dist/interfaces/handlers/appointment-handler.handler
+    events:
+      - http:
+          path: appointments
+          method: post
+          cors: true
+
+      - http:
+          path: appointments/{insuredId}
+          method: get
+          cors: true
+
+      - sqs: # Esta parte es para la cola que EventBridge envía al final del flujo
+          arn:
+            Fn::GetAtt:
+              - AppointmentConfirmedQueue
+              - Arn
+  schedule:
+    handler: dist/interfaces/handlers/schedule-handler.handler
+    events:
+      - http:
+          path: schedule
+          method: post
+          cors: true
+      - http:
+          path: schedule
+          method: get
+          cors: true
+  appointmentPE:
+    handler: dist/infrastructure/lambda/appointment-pe-handler.handler
+    events:
+      - sns:
+          topicName: appointments-pe-topic-${sls:stage}
+  appointmentCL:
+    handler: dist/infrastructure/lambda/appointment-cl-handler.handler
+    events:
+      - sns:
+          topicName: appointments-cl-topic-${sls:stage}
+            
+
+resources:
+  Resources:
+    AppointmentsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: Appointments
+        AttributeDefinitions:
+          - AttributeName: PK
+            AttributeType: S
+          - AttributeName: SK
+            AttributeType: S
+          - AttributeName: GSI1PK
+            AttributeType: S
+          - AttributeName: GSI1SK
+            AttributeType: S
+        KeySchema:
+          - AttributeName: PK
+            KeyType: HASH
+          - AttributeName: SK
+            KeyType: RANGE
+        GlobalSecondaryIndexes:
+          - IndexName: GSI1
+            KeySchema:
+              - AttributeName: GSI1PK
+                KeyType: HASH
+              - AttributeName: GSI1SK
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+        BillingMode: PAY_PER_REQUEST
+    AppointmentsEventBus:
+      Type: AWS::Events::EventBus
+      Properties:
+        Name: appointments-bus
+
+    AppointmentConfirmedQueue:
+      Type: AWS::SQS::Queue
+
+    AppointmentConfirmedEventRule:
+      Type: AWS::Events::Rule
+      Properties:
+        Name: appointment-confirmed-rule
+        Description: Enruta eventos AppointmentConfirmed a la cola SQS
+        EventBusName: !Ref AppointmentsEventBus
+        EventPattern:
+          source:
+            - "appointment.handler"
+          detail-type:
+            - "AppointmentConfirmed"
+        Targets:
+          - Arn: !GetAtt AppointmentConfirmedQueue.Arn
+            Id: SendToConfirmedQueue
+
+    PermissionToSendToSQSFromEventBridge:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues:
+          - !Ref AppointmentConfirmedQueue
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: events.amazonaws.com
+              Action: sqs:SendMessage
+              Resource: !GetAtt AppointmentConfirmedQueue.Arn
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: !GetAtt AppointmentConfirmedEventRule.Arn
+    
+    
+
+outputs:
+  AppointmentsTableName:
+    value: !Ref AppointmentsTable
+  AppointmentsTableArn:
+    value: !GetAtt AppointmentsTable.Arn

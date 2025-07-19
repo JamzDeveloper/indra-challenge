@@ -1,0 +1,6 @@
+export enum DynamoPrefix {
+  INSURED = "INSURED",
+  APPOINTMENT = "APPOINTMENT",
+  SCHEDULE = "SCHEDULE",
+  DETAILS = "DETAILS",
+}
