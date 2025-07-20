@@ -343,5 +343,5 @@ Content-Type: application/json
 
 ### ARQUITECTRURA
 
-<img src="docs-swagger/screens/image.png" alt="gif" width="700" />
-```
+<img src="docs-swagger/screens/image.png" alt="gif" width="900" />
+
