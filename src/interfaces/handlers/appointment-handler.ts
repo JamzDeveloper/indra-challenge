@@ -52,11 +52,9 @@ export const handler = async (
 ): Promise<APIGatewayProxyResult> => {
   console.log("handler appointment handler", event);
   if (isSQSEvent(event)) {
-    console.log(" 🛜handler appointment isSQSEvent", true);
 
     for (const record of event.Records) {
       const parsedBody = JSON.parse(record.body);
-      console.log("parsedBody parsedBody", parsedBody);
       const { detail } = parsedBody;
 
       if (parsedBody["detail-type"] === appConfig.eventBridge.detailType) {
@@ -68,7 +66,6 @@ export const handler = async (
           insuredId,
           status: "COMPLETED",
         });
-        console.log("✅ Evento desde SQS recibido:", appointmentId);
       }
     }
 

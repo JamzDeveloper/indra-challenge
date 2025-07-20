@@ -16,6 +16,7 @@ export const createAppointmentSchema = z.object({
   countryISO: z.enum(["PE", "CL"], {
     message: 'countryISO debe ser "PE" o "CL"',
   }),
+  description: z.string().optional(),
   email: z
     .email("El correo electrónico no tiene un formato válido.")
     .optional()
