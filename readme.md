@@ -135,6 +135,13 @@ EVENT_BRIDGE_DETAIL_TYPE=
 https://seguros-indra-swagger-docs.s3.us-east-1.amazonaws.com/index.html
 ```
 
+---
+### 🌐 Enlaces útiles
+
+- Repositorio: https://github.com/JamzDeveloper/indra-challenge
+- API Gateway (Deploy): https://r7n3ry156j.execute-api.us-east-1.amazonaws.com/dev
+- Swagger Documentation: https://seguros-indra-swagger-docs.s3.us-east-1.amazonaws.com/index.html
+
 ## Flujo Lógico de los Endpoints
 
 ### 1. POST `/appointments`
